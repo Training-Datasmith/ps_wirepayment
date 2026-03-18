@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /**
  * 2007-2020 PrestaShop and Contributors
  *
@@ -26,7 +28,7 @@ if (!defined('_PS_VERSION_')) {
 
 class Ps_Wirepayment extends PaymentModule
 {
-    const FLAG_DISPLAY_PAYMENT_INVITE = 'BANK_WIRE_PAYMENT_INVITE';
+    public const FLAG_DISPLAY_PAYMENT_INVITE = 'BANK_WIRE_PAYMENT_INVITE';
 
     protected $_html = '';
     protected $_postErrors = [];
