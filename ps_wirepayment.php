@@ -93,6 +93,11 @@ class Ps_Wirepayment extends PaymentModule
         ];
     }
 
+    /**
+     * Installs the module and registers the paymentOptions and displayPaymentReturn hooks.
+     *
+     * @return bool True on success, false on failure
+     */
     public function install()
     {
         Configuration::updateValue(self::FLAG_DISPLAY_PAYMENT_INVITE, true);
@@ -106,6 +111,11 @@ class Ps_Wirepayment extends PaymentModule
         return true;
     }
 
+    /**
+     * Uninstalls the module and removes all bank-wire configuration keys.
+     *
+     * @return bool True on success, false on failure
+     */
     public function uninstall()
     {
         if (!Configuration::deleteByName('BANK_WIRE_CUSTOM_TEXT')
@@ -210,6 +220,13 @@ class Ps_Wirepayment extends PaymentModule
         return $this->_html;
     }
 
+    /**
+     * Returns the bank wire payment option for the checkout payment step.
+     *
+     * @param array $params Hook parameters including the current cart
+     *
+     * @return PaymentOption[] Array containing the bank wire payment option, or empty array if unavailable
+     */
     public function hookPaymentOptions($params)
     {
         if (!$this->active) {
@@ -235,6 +252,13 @@ class Ps_Wirepayment extends PaymentModule
         ];
     }
 
+    /**
+     * Renders the bank wire payment confirmation message shown after order placement.
+     *
+     * @param array $params Hook parameters including the placed order
+     *
+     * @return string|null Rendered HTML with bank account details, or null if display is disabled
+     */
     public function hookDisplayPaymentReturn($params)
     {
         if (!$this->active || !Configuration::get(self::FLAG_DISPLAY_PAYMENT_INVITE)) {
@@ -274,6 +298,13 @@ class Ps_Wirepayment extends PaymentModule
         return $this->fetch('module:ps_wirepayment/views/templates/hook/payment_return.tpl');
     }
 
+    /**
+     * Checks whether the cart's currency is accepted by this payment module.
+     *
+     * @param Cart $cart The current shopping cart
+     *
+     * @return bool True if the currency is supported, false otherwise
+     */
     public function checkCurrency($cart)
     {
         $currency_order = new Currency($cart->id_currency);
