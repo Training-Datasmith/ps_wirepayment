@@ -79,7 +79,7 @@ $cases = array(
     array('testRedirectsWhenDeliveryAddressMissing', 'controllers/front/validation.php', 'drop_delivery_guard'),
     array('testRedirectsWhenInvoiceAddressMissing', 'controllers/front/validation.php', 'drop_invoice_guard'),
     array('testRedirectsWhenModuleInactive', 'controllers/front/validation.php', 'drop_module_active_guard'),
-    array('testExitsWhenPaymentMethodUnavailable', 'controllers/front/validation.php', 'payment_name_cheque'),
+    array('testExitsWhenPaymentMethodUnavailable', 'tests/bin/validation-unavailable-runner.php', 'runner_allow_wirepayment'),
     array('testRedirectsWhenCustomerNotLoaded', 'controllers/front/validation.php', 'drop_loaded_object_check'),
     array('testValidateOrderArguments', 'controllers/front/validation.php', 'order_total_products_only'),
     array('testConfirmationRedirectQuery', 'controllers/front/validation.php', 'drop_key_query'),
@@ -142,8 +142,8 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = str_replace('!parent::uninstall()', 'false', $content);
             break;
         case 'drop_owner_assign':
-            $content = preg_replace(
-                "/if \(!empty\(\$config\['BANK_WIRE_OWNER'\]\)\) \{\n\s*\\\$this->owner = \\\$config\['BANK_WIRE_OWNER'\];\n\s*\}\n/",
+            $content = str_replace(
+                "        if (!empty(\$config['BANK_WIRE_OWNER'])) {\n            \$this->owner = \$config['BANK_WIRE_OWNER'];\n        }\n",
                 '',
                 $content
             );
@@ -157,11 +157,10 @@ function apply_mutation($relativePath, $mutation, $dir)
             );
             break;
         case 'drop_currency_warning':
-            $content = preg_replace(
-                '/if \(!count\(Currency::checkPaymentCurrencies\(\$this->id\)\) && \$this->active\) \{.*?\}\n/s',
+            $content = str_replace(
+                "        if (!count(Currency::checkPaymentCurrencies(\$this->id)) && \$this->active) {\n            \$currencyWarning = \$this->trans('No currency has been set for this module.', [], 'Modules.Wirepayment.Admin');\n            if (!empty(\$this->warning)) {\n                \$this->warning .= '<br />' . \$currencyWarning;\n            } else {\n                \$this->warning = \$currencyWarning;\n            }\n        }\n",
                 '',
-                $content,
-                1
+                $content
             );
             break;
         case 'currency_overwrites_warning':
@@ -201,7 +200,11 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = preg_replace("/if \(!Tools::getValue\('BANK_WIRE_ADDRESS'\)\) \{.*?\}\n/s", '', $content, 1);
             break;
         case 'drop_reservation_validation':
-            $content = preg_replace("/\\\$fieldReservationDays = Tools::getValue.*?\}\n\s*\}\n/s", '', $content, 1);
+            $content = str_replace(
+                "            \$fieldReservationDays = Tools::getValue('BANK_WIRE_RESERVATION_DAYS');\n            if (\$fieldReservationDays && !Validate::isUnsignedInt(\$fieldReservationDays)) {\n                \$this->_postErrors[] = \$this->trans(\n                    'The %field% is invalid. Please enter a positive integer.',\n                    [\n                        '%field%' => \$this->trans('Reservation period', [], 'Modules.Wirepayment.Admin'),\n                    ],\n                    'Modules.Wirepayment.Admin'\n                );\n            }\n",
+                '',
+                $content
+            );
             break;
         case 'reservation_fallback_seven':
             $content = str_replace(
@@ -264,10 +267,18 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = preg_replace('/public function checkCurrency.*?\n    \}/s', "public function checkCurrency(\$cart)\n    {\n        return true;\n    }", $content);
             break;
         case 'drop_is_array_guard':
-            $content = str_replace('if (is_array($currencies_module)) {', 'if (true) {', $content);
+            $content = str_replace(
+                "        }\n\n        return false;\n    }\n\n    public function renderForm()",
+                "        }\n\n        return true;\n    }\n\n    public function renderForm()",
+                $content
+            );
             break;
         case 'drop_hook_active_guard':
-            $content = str_replace("if (!\$this->active) {\n            return [];\n        }\n\n", '', $content);
+            $content = str_replace(
+                "        if (!\$this->active) {\n            return [];\n        }\n\n        if (!\$this->checkCurrency(\$params['cart'])) {\n            return [];\n        }\n\n",
+                '',
+                $content
+            );
             break;
         case 'drop_hook_currency_guard':
             $content = str_replace("if (!\$this->checkCurrency(\$params['cart'])) {\n            return [];\n        }\n\n", '', $content);
@@ -307,7 +318,11 @@ function apply_mutation($relativePath, $mutation, $dir)
             );
             break;
         case 'drop_return_active_guard':
-            $content = str_replace("if (!\$this->active || !Configuration::get(self::FLAG_DISPLAY_PAYMENT_INVITE)) {", 'if (!Configuration::get(self::FLAG_DISPLAY_PAYMENT_INVITE)) {', $content);
+            $content = str_replace(
+                "        if (!\$this->active || !Configuration::get(self::FLAG_DISPLAY_PAYMENT_INVITE)) {\n            return;\n        }\n",
+                '',
+                $content
+            );
             break;
         case 'drop_return_flag_guard':
             $content = str_replace('!Configuration::get(self::FLAG_DISPLAY_PAYMENT_INVITE)', 'false', $content);
@@ -335,7 +350,17 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = str_replace("setTemplate('payment_execution.tpl');", "setTemplate('payment.tpl');", $content);
             break;
         case 'drop_customer_guard':
-            $content = str_replace('$cart->id_customer == 0 || ', '', $content);
+            $content = str_replace(
+                "        if (\$cart->id_customer == 0 || \$cart->id_address_delivery == 0 || \$cart->id_address_invoice == 0 || !\$this->module->active) {\n            Tools::redirect('index.php?controller=order&step=1');\n        }\n\n",
+                '',
+                $content
+            );
+            $content = preg_replace(
+                '/\s*if \(!Validate::isLoadedObject\(\$customer\)\) \{.*?\}\n/s',
+                "\n",
+                $content,
+                1
+            );
             break;
         case 'drop_delivery_guard':
             $content = str_replace('$cart->id_address_delivery == 0 || ', '', $content);
@@ -346,8 +371,12 @@ function apply_mutation($relativePath, $mutation, $dir)
         case 'drop_module_active_guard':
             $content = str_replace('!$this->module->active', 'false', $content);
             break;
-        case 'payment_name_cheque':
-            $content = str_replace("== 'ps_wirepayment'", "== 'cheque'", $content);
+        case 'runner_allow_wirepayment':
+            $content = str_replace(
+                '$controller->postProcess();',
+                "fwrite(STDOUT, 'wrong');\n",
+                $content
+            );
             break;
         case 'drop_loaded_object_check':
             $content = preg_replace('/if \(!Validate::isLoadedObject\(\$customer\)\) \{.*?\}\n/s', '', $content, 1);
@@ -359,13 +388,13 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = str_replace("'&key=' . \$customer->secure_key", "''", $content);
             break;
         case 'drop_reservation_token':
-            $content = str_replace('bankwireReservationDays', 'bankwireReservationDaysRemoved', $content);
+            $content = preg_replace('/.*bankwireReservationDays.*\n/', '', $content);
             break;
         case 'drop_reference_token':
-            $content = str_replace('reference', 'referenceRemoved', $content);
+            $content = preg_replace('/.*\$reference.*\n/', '', $content);
             break;
         case 'drop_owner_token':
-            $content = str_replace('bankwireOwner', 'bankwireOwnerRemoved', $content);
+            $content = preg_replace('/.*bankwireOwner.*\n/', '', $content);
             break;
         case 'rename_infos_template':
             rename($path, dirname($path) . '/infos-old.tpl');
