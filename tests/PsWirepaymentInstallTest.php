@@ -57,6 +57,10 @@ class PsWirepaymentInstallTest extends WirepaymentTestCase
         $this->assertTrue($module->uninstall());
         $this->assertFalse(Configuration::get('BANK_WIRE_OWNER'));
         $this->assertFalse(Configuration::get('BANK_WIRE_DETAILS'));
+        $this->assertFalse(Configuration::get('BANK_WIRE_ADDRESS'));
+        $this->assertFalse(Configuration::get('BANK_WIRE_RESERVATION_DAYS'));
+        $this->assertFalse(Configuration::get('BANK_WIRE_CUSTOM_TEXT'));
+        $this->assertFalse(Configuration::get(Ps_Wirepayment::FLAG_DISPLAY_PAYMENT_INVITE));
         $this->assertSame('shop@test.example', Configuration::get('PS_SHOP_EMAIL'));
     }
 

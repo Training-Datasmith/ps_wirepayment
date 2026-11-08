@@ -13,4 +13,9 @@ $controller->module->active = true;
 $controller->module->id = 7;
 $controller->module->displayName = 'Wire payment';
 
-$controller->postProcess();
+try {
+    $controller->postProcess();
+} catch (WirepaymentTestRedirect $e) {
+    fwrite(STDERR, 'Unexpected redirect: ' . $e->url);
+    exit(1);
+}

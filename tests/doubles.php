@@ -141,10 +141,12 @@ class LanguageTestStore
 class CustomerTestStore
 {
     public static $customers = array();
+    public static $constructionCount = 0;
 
     public static function reset()
     {
         self::$customers = array();
+        self::$constructionCount = 0;
     }
 }
 
@@ -458,6 +460,7 @@ class Customer
 
     public function __construct($id)
     {
+        CustomerTestStore::$constructionCount++;
         $this->id = $id;
         if (isset(CustomerTestStore::$customers[(int) $id])) {
             $this->secure_key = CustomerTestStore::$customers[(int) $id]['secure_key'];

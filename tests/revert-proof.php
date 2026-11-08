@@ -33,7 +33,7 @@ $cases = array(
     array('testInstallReturnsFalseWhenPaymentOptionsRegistrationFails', 'ps_wirepayment.php', 'drop_payment_options_check'),
     array('testInstallDoesNotRegisterPaymentOptionsWhenDisplayPaymentReturnFails', 'ps_wirepayment.php', 'install_register_both'),
     array('testUninstallDeletesAllConfigurationKeysAndReturnsTrue', 'ps_wirepayment.php', 'drop_owner_delete'),
-    array('testUninstallReturnsFalseWhenCustomTextDeleteFails', 'tests/doubles.php', 'uninstall_ignore_delete_fail'),
+    array('testUninstallReturnsFalseWhenCustomTextDeleteFails', 'ps_wirepayment.php', 'uninstall_ignore_delete_fail'),
     array('testUninstallReturnsFalseWhenParentUninstallFails', 'ps_wirepayment.php', 'parent_uninstall_always_true'),
     array('testConstructorLoadsNonEmptyConfigurationOntoProperties', 'ps_wirepayment.php', 'drop_owner_assign'),
     array('testConstructorWarningWhenAccountIncomplete', 'ps_wirepayment.php', 'drop_account_warning'),
@@ -53,7 +53,7 @@ $cases = array(
     array('testAllRequiredErrorsWhenAllEmpty', 'ps_wirepayment.php', 'single_owner_error'),
     array('testGetConfigFieldsValuesPrefersPostedOwner', 'ps_wirepayment.php', 'config_owner_stored_only'),
     array('testCustomTextPartialLanguageUpdate', 'ps_wirepayment.php', 'custom_text_all_langs'),
-    array('testGetConfigFieldsValuesCustomTextKeys', 'tests/doubles.php', 'languages_active_only'),
+    array('testGetConfigFieldsValuesCustomTextKeys', 'ps_wirepayment.php', 'languages_active_only'),
     array('testRenderFormFieldRequirements', 'ps_wirepayment.php', 'reservation_required'),
     array('testRenderFormHelperMetadata', 'ps_wirepayment.php', 'submit_action_typo'),
     array('testCheckCurrencyReturnsTrueForMatchingCurrency', 'ps_wirepayment.php', 'check_currency_false'),
@@ -79,7 +79,7 @@ $cases = array(
     array('testRedirectsWhenDeliveryAddressMissing', 'controllers/front/validation.php', 'drop_delivery_guard'),
     array('testRedirectsWhenInvoiceAddressMissing', 'controllers/front/validation.php', 'drop_invoice_guard'),
     array('testRedirectsWhenModuleInactive', 'controllers/front/validation.php', 'drop_module_active_guard'),
-    array('testExitsWhenPaymentMethodUnavailable', 'tests/bin/validation-unavailable-runner.php', 'runner_allow_wirepayment'),
+    array('testExitsWhenPaymentMethodUnavailable', 'controllers/front/validation.php', 'payment_unavailable_message'),
     array('testRedirectsWhenCustomerNotLoaded', 'controllers/front/validation.php', 'drop_loaded_object_check'),
     array('testValidateOrderArguments', 'controllers/front/validation.php', 'order_total_products_only'),
     array('testConfirmationRedirectQuery', 'controllers/front/validation.php', 'drop_key_query'),
@@ -132,11 +132,22 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = str_replace("|| !Configuration::deleteByName('BANK_WIRE_OWNER')", '', $content);
             break;
         case 'uninstall_ignore_delete_fail':
-            $content = str_replace(
-                "if (in_array(\$key, ConfigurationTestStore::\$deleteFailKeys, true)) {\n            return false;\n        }",
-                "/* ignore delete fail */",
-                $content
-            );
+            $start = strpos($content, "    public function uninstall()");
+            $end = strpos($content, "    protected function _postValidation()");
+            if ($start === false || $end === false) {
+                throw new RuntimeException('uninstall block missing');
+            }
+            $block = "    public function uninstall()\n    {\n"
+                . "        Configuration::deleteByName('BANK_WIRE_CUSTOM_TEXT');\n"
+                . "        Configuration::deleteByName('BANK_WIRE_DETAILS');\n"
+                . "        Configuration::deleteByName('BANK_WIRE_OWNER');\n"
+                . "        Configuration::deleteByName('BANK_WIRE_ADDRESS');\n"
+                . "        Configuration::deleteByName('BANK_WIRE_RESERVATION_DAYS');\n"
+                . "        Configuration::deleteByName(self::FLAG_DISPLAY_PAYMENT_INVITE);\n"
+                . "        parent::uninstall();\n"
+                . "        return true;\n"
+                . "    }\n\n";
+            $content = substr($content, 0, $start) . $block . substr($content, $end);
             break;
         case 'parent_uninstall_always_true':
             $content = str_replace('!parent::uninstall()', 'false', $content);
@@ -242,11 +253,9 @@ function apply_mutation($relativePath, $mutation, $dir)
             );
             break;
         case 'languages_active_only':
-            $content = str_replace('return LanguageTestStore::$languages;', 'return Language::getLanguages(true);', $content);
-            $content = str_replace('function getLanguages($active = true)', 'function getLanguages($active = true)', $content);
             $content = str_replace(
-                "        return LanguageTestStore::\$languages;",
-                "        return array(array('id_lang' => 1, 'iso_code' => 'en', 'active' => 1));",
+                "    public function getConfigFieldsValues()\n    {\n        \$custom_text = [];\n        \$languages = Language::getLanguages(false);",
+                "    public function getConfigFieldsValues()\n    {\n        \$custom_text = [];\n        \$languages = Language::getLanguages(true);",
                 $content
             );
             break;
@@ -350,17 +359,7 @@ function apply_mutation($relativePath, $mutation, $dir)
             $content = str_replace("setTemplate('payment_execution.tpl');", "setTemplate('payment.tpl');", $content);
             break;
         case 'drop_customer_guard':
-            $content = str_replace(
-                "        if (\$cart->id_customer == 0 || \$cart->id_address_delivery == 0 || \$cart->id_address_invoice == 0 || !\$this->module->active) {\n            Tools::redirect('index.php?controller=order&step=1');\n        }\n\n",
-                '',
-                $content
-            );
-            $content = preg_replace(
-                '/\s*if \(!Validate::isLoadedObject\(\$customer\)\) \{.*?\}\n/s',
-                "\n",
-                $content,
-                1
-            );
+            $content = str_replace('$cart->id_customer == 0 || ', '', $content);
             break;
         case 'drop_delivery_guard':
             $content = str_replace('$cart->id_address_delivery == 0 || ', '', $content);
@@ -371,10 +370,10 @@ function apply_mutation($relativePath, $mutation, $dir)
         case 'drop_module_active_guard':
             $content = str_replace('!$this->module->active', 'false', $content);
             break;
-        case 'runner_allow_wirepayment':
+        case 'payment_unavailable_message':
             $content = str_replace(
-                '$controller->postProcess();',
-                "fwrite(STDOUT, 'wrong');\n",
+                'This payment method is not available.',
+                'This payment method is gone.',
                 $content
             );
             break;

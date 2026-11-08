@@ -26,6 +26,7 @@ class ValidationControllerTest extends WirepaymentTestCase
         } catch (WirepaymentTestRedirect $e) {
             $this->assertSame('index.php?controller=order&step=1', $e->url);
         }
+        $this->assertSame(0, CustomerTestStore::$constructionCount);
         $this->assertSame(array(), PaymentModuleTestRuntime::$validateOrderCalls);
     }
 
@@ -99,8 +100,9 @@ class ValidationControllerTest extends WirepaymentTestCase
         $this->assertCount(1, PaymentModuleTestRuntime::$validateOrderCalls);
         $call = PaymentModuleTestRuntime::$validateOrderCalls[0];
         $this->assertSame(44, $call[0]);
-        $this->assertSame(10, (int) $call[1]);
-        $this->assertSame(19.9, (float) $call[2]);
+        $this->assertSame(10, $call[1]);
+        $this->assertInternalType('double', $call[2]);
+        $this->assertSame(19.9, $call[2]);
         $this->assertSame('Wire payment', $call[3]);
         $this->assertNull($call[4]);
         $this->assertSame('Owner', $call[5]['{bankwire_owner}']);
