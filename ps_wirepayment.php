@@ -81,7 +81,12 @@ class Ps_Wirepayment extends PaymentModule
             $this->warning = $this->trans('Account owner and account details must be configured before using this module.', [], 'Modules.Wirepayment.Admin');
         }
         if (!count(Currency::checkPaymentCurrencies($this->id)) && $this->active) {
-            $this->warning = $this->trans('No currency has been set for this module.', [], 'Modules.Wirepayment.Admin');
+            $currencyWarning = $this->trans('No currency has been set for this module.', [], 'Modules.Wirepayment.Admin');
+            if (!empty($this->warning)) {
+                $this->warning .= '<br />' . $currencyWarning;
+            } else {
+                $this->warning = $currencyWarning;
+            }
         }
 
         $this->extra_mail_vars = [
@@ -122,11 +127,6 @@ class Ps_Wirepayment extends PaymentModule
     protected function _postValidation()
     {
         if (Tools::isSubmit('btnSubmit')) {
-            Configuration::updateValue(
-                self::FLAG_DISPLAY_PAYMENT_INVITE,
-                Tools::getValue(self::FLAG_DISPLAY_PAYMENT_INVITE)
-            );
-
             if (!Tools::getValue('BANK_WIRE_DETAILS')) {
                 $this->_postErrors[] = $this->trans(
                     'Account details are required.',
@@ -168,6 +168,10 @@ class Ps_Wirepayment extends PaymentModule
             Configuration::updateValue('BANK_WIRE_DETAILS', Tools::getValue('BANK_WIRE_DETAILS'));
             Configuration::updateValue('BANK_WIRE_OWNER', Tools::getValue('BANK_WIRE_OWNER'));
             Configuration::updateValue('BANK_WIRE_ADDRESS', Tools::getValue('BANK_WIRE_ADDRESS'));
+            Configuration::updateValue(
+                self::FLAG_DISPLAY_PAYMENT_INVITE,
+                Tools::getValue(self::FLAG_DISPLAY_PAYMENT_INVITE)
+            );
 
             $custom_text = [];
             $languages = Language::getLanguages(false);
